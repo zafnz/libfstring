@@ -48,11 +48,12 @@ int main(int argc, char *argv[])
     struct {
         char *test;
         char *match;
+        int retval;
     } tests[] = {
         { "Yet Another {LONGLOOKUP} test", "Yet Another short test" },
         { "{LONGLOOKUP}", "short" },
         { "{T}", "long string" },
-        { "Testing {{ blah", "Testing { blah" },
+        { "Testing {{ blah", "Testing { blah", 13 },
         { "a{SHORT}b", "ashb" },
         { "Testing {LOOKUP} this", "Testing replacement this" },
         { "Blah{T}XXXY", "Blahlong stringXXXY" },
@@ -72,7 +73,10 @@ int main(int argc, char *argv[])
         } else if (strcmp(buffer, tests[i].match) != 0) {
             printf("%d: FAIL: Failed match: \"%s\" didn't match \"%s\"\n", total, buffer, tests[i].match);
             fail++;
-        } else if (r != strlen(tests[i].match)) {
+        } else if (tests[i].retval != 0 && r != tests[i].retval) {
+            printf("%d: FAIL: Returned %d but len should have been %lu\n", total, r, strlen(tests[i].match));
+            fail++;            
+        } else if (tests[i].retval == 0 && r != strlen(tests[i].match)) {
             printf("%d: FAIL: Returned %d but len should have been %lu\n", total, r, strlen(tests[i].match));
             fail++;
         } else {
