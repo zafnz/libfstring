@@ -20,5 +20,10 @@ build:
 	ldconfig -v -n . >/dev/null
 	$(CC) $(TEST_CFLAGS) test.c fstring.c -o test
 
+docs: 
+	doxygen Doxyfile  
 clean:
-	rm -f fstring test $(SNAME) $(DNAME) *.o
+	rm -f fstring test $(SNAME) $(DNAME) $(FNAME).so*
+	rm -rf docs/*
+
+.PHONY: docs

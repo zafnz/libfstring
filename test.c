@@ -1,3 +1,8 @@
+/*
+ *  Copyright Nick Clifford, 2021
+ * 
+ *  Nick Clifford (nick@crypto.geek.nz)
+ */
 #include <stdio.h>
 #include <string.h>
 

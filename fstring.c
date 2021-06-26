@@ -2,7 +2,6 @@
  *  @brief A C version of python's fstring
  *
  *  @copyright Nick Clifford, 2021
- *  @license Apache 2.0 License
  * 
  *  @author - Nick Clifford (nick@crypto.geek.nz)
  */
