@@ -1,51 +1,19 @@
+/** @file fstring.c
+ *  @brief A C version of python's fstring
+ *
+ *  @copyright Nick Clifford, 2021
+ *  @license Apache 2.0 License
+ * 
+ *  @author - Nick Clifford (nick@crypto.geek.nz)
+ */
 
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <sys/types.h>
 
-struct cfstring_parameter {
-    const char *name;
-    const char *value;
-    void (*callback)(void *, const char *, const char *);
-    void *callback_data;
-};
+#include "fstring.h"
 
-int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstring_parameter *parameters);
-
-int main(int argc, char *argv[]) 
-{
-    static char buffer[1024];
-    int r, i;
-    struct cfstring_parameter params[] = {
-        { .name = "LOOKUP", .value="replacement"},
-        { .name = "T", .value="long text"},
-        { .name = "LONGLOOKUP", .value = "short"},
-        { .name = NULL}        
-    };
-    struct {
-        char *test;
-        char *match;
-    } tests[] = {
-        { "Yet Another {LONGLOOKUP} test", "Yet Another short test" },
-        { "{LONGLOOKUP}", "short" },
-        { "{T}", "long text" },
-        { "Testing {LOOKUP} this", "Testing replacement this" },
-        { "Blah{T}XXXY", "Blahlong textXXXY" },
-        { NULL, NULL }
-    };
-    for(i = 0; tests[i].test != NULL; i++) {
-        memset(buffer, '*', sizeof(buffer));
-        r = cfstring(buffer, sizeof(buffer), tests[i].test, params);
-        if (r < 0) {
-            printf("Test %d failed, r = %d: Input: %s", i+1, r, tests[i].test);
-        } else if (strcmp(buffer, tests[i].match) != 0) {
-            printf("Test %d failed match: \"%s\" didn't match \"%s\"\n", i+1, buffer, tests[i].match);
-        } else {
-            puts(buffer);
-        }
-    }
-}
 
 const char *_param_lookup(const char *name, struct cfstring_parameter *p)
 {
@@ -87,7 +55,9 @@ int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstrin
             if (value == NULL) {
                 // Lookup failed, not there, we will simply output
                 // the name {NAME} (so restore that closing brace)
-                *sp++ = '}';
+                *sp = '}';
+                sp = ++dp;
+                buffer_remaining--;
             } else {
                 
                 // If the value is smaller than name, we only need
@@ -121,6 +91,9 @@ int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstrin
             buffer_remaining--;
         }
     }
+    if (buffer_remaining == 0) {
+        return -1;
+    }
     *dp = 0;
-    return 0;
+    return buffer_len - buffer_remaining;
 }
