@@ -12,10 +12,12 @@
 #include <sys/types.h>
 
 
+typedef const char *(*fstring_callback_t)(void *data, const char *name);
+
 struct fstring_value {
     const char *name;
     const char *value;
-    void (*callback)(void *, const char *, const char *);
+    fstring_callback_t callback;
     void *callback_data;
 };
 

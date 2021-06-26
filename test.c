@@ -3,6 +3,19 @@
 
 #include "fstring.h"
 
+char data_check[4] = "Boo";
+
+const char *test_callback1(void *data, const char *name)
+{
+    if (strcmp(name, "CALLBACK") != 0) {
+        return "Wrong name passed";
+    }
+    if (data != data_check) {
+        return "Bad data passed";
+    }
+    return "PASS";
+}
+
 
 int main(int argc, char *argv[]) 
 {
@@ -11,15 +24,18 @@ int main(int argc, char *argv[])
 
     /* Example showing the quick and easy way to call fstring */
     fstring(buffer, sizeof(buffer), "test {blah}", (fstring_value[]) {
-        {.name="blah", .value="TEST"}
+        {.name="blah", .value="TEST"},
+        {.name=NULL}
     });
 
     /* values to pass to our tests */
     fstring_value params[] = {
         { .name = "LOOKUP", .value="replacement"},
-        { .name = "T", .value="long text"},
+        { .name = "T", .value="long string"},
         { .name = "SHORT", .value="sh" },
         { .name = "LONGLOOKUP", .value = "short"},
+        { .name = "CALLBACK", .value = NULL, .callback = test_callback1, .callback_data = data_check },
+        { .name = "CB2", .value = NULL, .callback = test_callback1, .callback_data = NULL },
         { .name = NULL}        
     };
 
@@ -30,11 +46,15 @@ int main(int argc, char *argv[])
     } tests[] = {
         { "Yet Another {LONGLOOKUP} test", "Yet Another short test" },
         { "{LONGLOOKUP}", "short" },
-        { "{T}", "long text" },
+        { "{T}", "long string" },
+        { "Testing {{ blah", "Testing { blah" },
         { "a{SHORT}b", "ashb" },
         { "Testing {LOOKUP} this", "Testing replacement this" },
-        { "Blah{T}XXXY", "Blahlong textXXXY" },
+        { "Blah{T}XXXY", "Blahlong stringXXXY" },
         { "No such {MACRO} found", "No such {MACRO} found"},
+        { "Callback test: {CALLBACK}", "Callback test: PASS"},
+        { "CB: {CALLBACK}", "CB: PASS"},
+        { "CB: {CB2}", "CB: Wrong name passed"},
         { NULL, NULL }
     };
     for(i = 0; tests[i].test != NULL; i++) {
@@ -63,10 +83,10 @@ int main(int argc, char *argv[])
         int buff_len;
         int retval;
     } fail_tests[] = {
-        { "This shall not fit at all blah", 10, -1 },
-        { "{LONGLOOKUP}", 0, -1 },
-        { "a", 0, -1 },
-        { "x", 1, -1 },
+        { "This shall not fit at all blah", 10, -31 }, // 30 characters
+        { "{LONGLOOKUP}", 0, -13 }, // 12 characters
+        { "a", 0, -2 },
+        { "x", 1, -2 },
         { "y", 2, 1 },
         { NULL, 0, 0 }
     };    
@@ -82,7 +102,8 @@ int main(int argc, char *argv[])
             success++;
         }
     }
-    printf("\n");
+
+    printf("\nAnd now testing some edge cases\n");
 
     total++;
     memset(buffer, '*', sizeof(buffer));
@@ -101,7 +122,7 @@ int main(int argc, char *argv[])
 
     total++;
     r = fstring(buffer, 2, "{T}", params);
-    if (r != -1) {
+    if (r != -4) {
         total++;
         printf("%d: FAIL: short template overrun returned %d\n", total, r);
         fail++;
@@ -111,8 +132,10 @@ int main(int argc, char *argv[])
     }
     total++;
     memset(buffer, '*', sizeof(buffer));
+    /* {T} is 10 charcters long */
     r = fstring(buffer, 5, "{T}", params);
-    if (r != -1) {
+    /* So we should need 11 bytes to store it */
+    if (r != -11) {
         printf("%d: FAIL: template overrun returned %d\n", total, r);
         fail++;
     } else if (buffer[5] != '*') {
@@ -120,6 +143,26 @@ int main(int argc, char *argv[])
         fail++;
     } else {
         printf("%d: PASS: template overrun returned correctly %d\n", total, r);
+        success++;
+    }
+
+    total++;
+    r = fstring(buffer, sizeof(buffer), "test {XYZ}", (fstring_value[]) {
+        {.name="blah", .value="TEST"},
+        {.name="*", .value="Wildcard"},
+        {.name=NULL}
+    });   
+    if (r < 0) {
+        printf("%d: FAIL: Wildcard returned error: %d\n", total, r);
+        fail++;
+    } else if (r != 13) {
+        printf("%d: FAIL: Wildcard returned bad length %d: %s\n", total, r, buffer);
+        fail++;
+    } else if (strcmp(buffer, "test Wildcard") != 0) {
+        printf("%d: FAIL: Wildcard string doesn't match '%s' vs '%s'\n", total, buffer, "test Wildcard");
+        fail++;
+    } else {
+        printf("%d: PASS: Wildcard test passed: %s\n", total, buffer);
         success++;
     }
     /* End of checks */

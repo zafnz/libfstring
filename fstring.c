@@ -18,8 +18,12 @@
 const char *_value_lookup(const char *name, fstring_value *values)
 {
     for(int i = 0; values && values[i].name != NULL; i++) {
-        if (strcasecmp(name, values[i].name) == 0) {
-            return values[i].value;
+        if (strcasecmp(name, values[i].name) == 0 || (values[i].name[0] == '*' && values[i].name[1] == 0)) {
+            if (values[i].value == NULL && values[i].callback != NULL) {
+                return (values[i].callback)(values[i].callback_data, name);
+            } else {
+                return values[i].value;
+            }
         }
     }
     return NULL;
@@ -30,15 +34,21 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
     char *sp, *dp, *name;
     const char *value;
     size_t buffer_remaining, value_len, remaining_len;
-    buffer_remaining = buffer_len;
+
+    if (buffer_len < strlen(format) + 1) {
+        return 0 - (strlen(format) + 1);
+    }
     strncpy(buffer, format, buffer_len);
+
+    buffer_remaining = buffer_len;
     sp = buffer;
     dp = buffer;
     while(*sp != 0 && buffer_remaining > 0) {
         if (*sp == '{' && *(sp+1) == '{') {
             // If it's a curly brace follow by another curlly brace, it's considered
             // escaping, so "blah {{ blah" becomes "blah { blah"
-            sp++;
+            sp+=2;
+            dp++;
         } else if (*sp == '{') {
             // We are at the beginning of a named variable. 
             sp++;
@@ -68,9 +78,9 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
                 //name_len = strlen(name);
                 remaining_len = strlen(sp+1);
 
-                if (buffer_remaining < value_len + remaining_len + 1) {
+                if (buffer_remaining < value_len + remaining_len) {
                     // We can't fit the value and the remaining text
-                    return -1;
+                    return 0 - (value_len + remaining_len);
                 }
                 // Where are we?
                 // sp is at the closing brace.
@@ -92,7 +102,7 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
         }
     }
     if (buffer_remaining == 0) {
-        return -1;
+        return 0 - (strlen(sp) + 1);
     }
     *dp = 0;
     return buffer_len - buffer_remaining;
