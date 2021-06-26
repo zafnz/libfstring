@@ -8,7 +8,7 @@ SNAME   := $(FNAME).a
 DNAME   := $(FNAME).so.$(VERSION)
 
 CC=gcc
-CFLAGS=-Wall -g -O0 
+CFLAGS=-Wall -g  
 LDFLAGS=-shared -soname=$(FNAME).so.$(VERSION_MAJOR)
 TEST_CFLAGS=-O0 -Wall -g
 all: build
@@ -16,8 +16,8 @@ all: build
 build:
 	$(CC) $(CFLAGS) -fPIC -c fstring.c -o fstring.o
 	$(LD) $(LDFLAGS) -o $(DNAME) fstring.o
-	$(AR) $(ARFLAGS) $(SNAME) fstring.o
-	@ldconfig -v -n .
+	$(AR) $(ARFLAGS) $(SNAME) fstring.o >/dev/null
+	ldconfig -v -n . >/dev/null
 	$(CC) $(TEST_CFLAGS) test.c fstring.c -o test
 
 clean:

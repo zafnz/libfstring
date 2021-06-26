@@ -12,14 +12,15 @@
 #include <sys/types.h>
 
 
-struct cfstring_parameter {
+struct fstring_value {
     const char *name;
     const char *value;
     void (*callback)(void *, const char *, const char *);
     void *callback_data;
 };
 
+typedef struct fstring_value fstring_value;
 
-extern int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstring_parameter *parameters);
+extern int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values);
 
 #endif

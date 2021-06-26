@@ -15,17 +15,17 @@
 #include "fstring.h"
 
 
-const char *_param_lookup(const char *name, struct cfstring_parameter *p)
+const char *_value_lookup(const char *name, fstring_value *values)
 {
-    for(int i = 0; p && p[i].name != NULL; i++) {
-        if (strcasecmp(name, p[i].name) == 0) {
-            return p[i].value;
+    for(int i = 0; values && values[i].name != NULL; i++) {
+        if (strcasecmp(name, values[i].name) == 0) {
+            return values[i].value;
         }
     }
     return NULL;
 }
 
-int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstring_parameter *parameters)
+int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values)
 {
     char *sp, *dp, *name;
     const char *value;
@@ -51,7 +51,7 @@ int cfstring(char *buffer, size_t buffer_len, const char *format, struct cfstrin
                 return -1;
             }
             *sp = 0; // Terminate the string so we have a name.
-            value = _param_lookup(name, parameters);
+            value = _value_lookup(name, values);
             if (value == NULL) {
                 // Lookup failed, not there, we will simply output
                 // the name {NAME} (so restore that closing brace)
