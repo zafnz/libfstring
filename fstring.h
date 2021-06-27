@@ -81,4 +81,27 @@ typedef struct {
  */
 extern int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values);
 
+
+/**
+ * @brief Formatted string using supplied variables with malloc'd output
+ * 
+ * @details     This function is identical to fstring, except it dynamically allocates the
+ *              memory for you.
+ * 
+ * @param[in]   format      See fstring for an explanation
+ * @param[in]   values      See fstring for an explanation
+ * 
+ * @return      The formatted string with the variables replaced. 
+ *              It will return NULL if there is a parsing error in the string or 
+ *              if the buffer is over 1MB.
+ *              It is up to you to free() the string.
+ * 
+ * @code
+ *      char *result = dfstring("{hello}", (fstring_value[]) {{.name="hello", .value="world"}});
+ *      puts(result); // prints "world"
+ */
+
+extern char *dfstring(const char *format, fstring_value *values);
+
+
 #endif

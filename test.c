@@ -68,16 +68,16 @@ int main(int argc, char *argv[])
         total++;
         r = fstring(buffer, sizeof(buffer), tests[i].test, params);
         if (r < 0) {
-            printf("%d: FAIL: Got error code %d, input: %s", total, r, tests[i].test);
+            printf("%d: FAIL: Got error code %d, input: %s\n", total, r, tests[i].test);
             fail++;
         } else if (strcmp(buffer, tests[i].match) != 0) {
             printf("%d: FAIL: Failed match: \"%s\" didn't match \"%s\"\n", total, buffer, tests[i].match);
             fail++;
         } else if (tests[i].retval != 0 && r != tests[i].retval) {
-            printf("%d: FAIL: Returned %d but len should have been %lu\n", total, r, strlen(tests[i].match));
+            printf("%d: FAIL: Returned %d but len should have been %u: %s\n", total, r, tests[i].retval, buffer);
             fail++;            
         } else if (tests[i].retval == 0 && r != strlen(tests[i].match)) {
-            printf("%d: FAIL: Returned %d but len should have been %lu\n", total, r, strlen(tests[i].match));
+            printf("%d: FAIL: Returned %d but strlen should have been %lu: %s\n", total, r, strlen(tests[i].match), buffer);
             fail++;
         } else {
             printf("%d: PASS: %s\n", total, buffer);
