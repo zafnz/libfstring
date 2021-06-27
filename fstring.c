@@ -175,12 +175,6 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
     if (buffer_len < format_len + 1) {
         return 0 - (format_len + 1);
     }
-    /*
-     * We work entirely in the buffer, and not in the format string, we copy the
-     * contents of format into buffer
-     */
-    strncpy(buffer, format, buffer_len);
-
     buffer_remaining = buffer_len;
     /* 
      sp is the source pointer, when we are copying the bytes from the format
@@ -209,13 +203,14 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
             name = dp+1;
             name_len = 0;
             // Copy the name to the dest buffer, so we can null terminate it.
+            // We are copying the entire {blah}
             while(*sp != 0 && *sp != '}' && --buffer_remaining > 0) {
                 *dp++ = *sp++;
                 name_len++;
             }
             if (*sp == 0) {
                 // Unfished curlybrace.
-                // fprintf(stderr, "Unfinished curly brace\n");
+                //fprintf(stderr, "Unfinished curly brace\n");
                 return -1;
             } else if (buffer_remaining == 0) {
                 // Ran out of room storing the name
@@ -223,6 +218,7 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
             }
             
             *dp = 0; // Terminate the string so we have a name.
+            // Dest now looks like xxxxxx{blah\0
             value = _value_lookup(name, values);
             if (value == NULL) {
                 // Lookup failed, not there, we will simply output
@@ -234,26 +230,27 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
                 value_len = strlen(value);
                 remaining_len = strlen(sp+1);
                 // Where are we?
-                // sp is at the closing brace.
+                // sp is at the closing curly brace.
                 // name is one past the opening curly brace
-                // dp at the the end of the name(where the closing brace would be).
+                // dp at the the end of the name(where the closing brace would be, and is currently \0).
                 //
-                // We've already written out the {blah}, and we 
-                // will be replacing it with THEVALUE,
+                // We've already written out the {blah}, and we will be replacing it with THEVALUE,
                 // We need to fit THEVALUE and <whatever remains>
                 // Move dp back to the beginning, where we overwrite the {name}
-                dp = name - 1;
-                sp++; // sp is now just past the curly brace
-                buffer_remaining += name_len + 1;
+                dp = name - 1; // name was at the start of {name} (just passed the curly brace)
+                sp++; // sp is now just past the curly brace in the source, so at the "remaining"
+                // We decremented the buffer remaining whilst we were copying {name} to the
+                // destination, now we are about to replace with THEVALUE, so reset buffer_remaining
+                buffer_remaining += name_len ;
 
                 if (buffer_remaining < value_len + remaining_len) {
                     // We can't fit the value and the remaining text
                     return 0 - (value_len + remaining_len);
                 }
-
+                // Copy THEVALUE to the dest
                 memcpy(dp, value, value_len);
                 dp += value_len;
-                buffer_remaining -= (name_len - value_len);
+                buffer_remaining -= value_len;
             }
         } else {
             *dp++ = *sp++;
