@@ -5,6 +5,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "fstring.h"
 
@@ -25,18 +26,28 @@ const char *test_callback1(void *data, const char *name)
 #define S_FAIL "\x1b[31mFAIL\x1b[0m"
 
 
+#define PERF_TEST_COUNT     50000000L
+
 void performance_test()
 {
-/*    static char buffer[1024];
-    int r, i, total = 0, fail = 0, success = 0;
+    static char buffer[1024];
+    int i;
+    struct timeval tv_start, tv_end;
+    u_int64_t usec;
 
+    printf("Starting perf test\n");
+    gettimeofday(&tv_start, NULL);
+    for(i = PERF_TEST_COUNT; --i > 0;) {
+        fstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", (fstring_value[]) {
+            {.name="blah", .value="TEST"},
+            {.name=NULL}
+        });
+    }
+    gettimeofday(&tv_end, NULL);
 
-    r = fstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", (fstring_value[]) {
-        {.name="blah", .value="TEST"},
-        {.name=NULL}
-    });
-    printf("Test returned %lu: %s\n", r, buffer);
-*/
+    usec = (1000000 * (tv_end.tv_sec - tv_start.tv_sec)) + (tv_end.tv_usec - tv_start.tv_usec);
+    printf("%ld interations. Elapsed time: %llu us (%llu.%06llu seconds)\n", PERF_TEST_COUNT, usec,
+            usec / 1000000, usec % 1000000);
 }
 
 
@@ -201,7 +212,7 @@ int main(int argc, char *argv[])
     }
 
     if (argc > 1 && strcmp(argv[1], "performance") == 0) {
-        //performance_test();
+        performance_test();
     }
     return 0;
 }

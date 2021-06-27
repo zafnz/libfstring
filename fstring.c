@@ -61,119 +61,21 @@ char *dfstring(const char *format, fstring_value *values)
     return buffer;
 }
 
-
-#if 0
-/* See function documentation in header file */
-int old_fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values)
-{
-    char *sp, *dp, *name;
-    const char *value;
-    size_t buffer_remaining, value_len, remaining_len;
-
-    /* Shortcut to ensure that we start off on the right foot! */
-    if (buffer_len < strlen(format) + 1) {
-        return 0 - (strlen(format) + 1);
-    }
-    /*
-     * We work entirely in the buffer, and not in the format string, we copy the
-     * contents of format into buffer
-     */
-    strncpy(buffer, format, buffer_len);
-
-    buffer_remaining = buffer_len;
-    /* 
-     sp is the source pointer, when we are copying the bytes from the format
-     to the buffer, this is where we are up to. sp will be ahead of dp when
-     an escaped curly brace is found
-
-     dp is the destination pointer, typically it is the same as sp, but it will
-     temporarily be in a different position when encountering an escaped curly 
-     brace or a variable
-    */
-
-    sp = buffer;
-    dp = buffer;
-    while(*sp != 0 && buffer_remaining > 0) {
-        if (*sp == '{' && *(sp+1) == '{') {
-            // If it's a curly brace follow by another curlly brace, it's considered
-            // escaping, so "blah {{ blah" becomes "blah { blah"
-            sp+=2;
-            dp++;
-        } else if (*sp == '{') {
-            // We are at the beginning of a named variable. 
-            sp++;
-            name = sp;
-            // Skip to the closing brace.
-            while(*sp != 0 && *sp != '}') sp++;
-            if (*sp == 0) {
-                // Unfished curlybrace.
-                // fprintf(stderr, "Unfinished curly brace\n");
-                return -1;
-            }
-            *sp = 0; // Terminate the string so we have a name.
-            value = _value_lookup(name, values);
-            if (value == NULL) {
-                // Lookup failed, not there, we will simply output
-                // the name {NAME} (so restore that closing brace)
-                *sp = '}';
-                sp = ++dp;
-                buffer_remaining--;
-            } else {
-                
-                // If the value is smaller than name, we only need
-                // to move sp to past the name.
-                // But if value is longer than name, we need to move
-                // the remaining text so it can fit. 
-                value_len = strlen(value);
-                //name_len = strlen(name);
-                remaining_len = strlen(sp+1);
-
-                if (buffer_remaining < value_len + remaining_len) {
-                    // We can't fit the value and the remaining text
-                    return 0 - (value_len + remaining_len);
-                }
-                // Where are we?
-                // sp is at the closing brace.
-                // dp at the opening curly brace.
-                // We need to shift
-                // AAAAbbbCCCCC
-                // the C's need to move further away.
-                memmove(dp + value_len, sp+1, remaining_len + 1);
-                // Now we have space between the opening curly brace
-                // and the closing curly brace.
-                memcpy(dp, value, value_len);
-                dp += value_len;
-                sp = dp;
-                buffer_remaining -= value_len;
-            }
-        } else {
-            *dp++ = *sp++;
-            buffer_remaining--;
-        }
-    }
-    if (buffer_remaining == 0) {
-        return 0 - (strlen(sp) + 1);
-    }
-    *dp = 0;
-    return buffer_len - buffer_remaining;
-}
-
-#endif
-
-/* See function documentation in header file */
+/* Buffered fstring.*/
 int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values)
 {
     const char *sp;
     char *dp, *name;
     const char *value;
     size_t buffer_remaining;
-    size_t remaining_len, format_len, value_len, name_len;
+    size_t remaining_len, value_len, name_len;
 
-    format_len = strlen(format);
-
-    /* Shortcut to ensure that we start off on the right foot! */
-    if (buffer_len < format_len + 1) {
-        return 0 - (format_len + 1);
+    if (buffer_len == 0) {
+        return 0 - strlen(format) - 1;
+    }
+    if (*format == 0) {
+        *buffer = 0;
+        return 0;
     }
     buffer_remaining = buffer_len;
     /* 
@@ -206,15 +108,16 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
             // We are copying the entire {blah}
             while(*sp != 0 && *sp != '}' && --buffer_remaining > 0) {
                 *dp++ = *sp++;
-                name_len++;
             }
+            name_len = (dp - name) + 1;
             if (*sp == 0) {
                 // Unfished curlybrace.
                 //fprintf(stderr, "Unfinished curly brace\n");
                 return -1;
             } else if (buffer_remaining == 0) {
                 // Ran out of room storing the name
-                return 0 - strlen(sp);
+                //fprintf(stderr,"Ran out of memory storing the name\n");
+                return 0 - buffer_len - strlen(sp);
             }
             
             *dp = 0; // Terminate the string so we have a name.
@@ -258,7 +161,8 @@ int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *
         }
     }
     if (buffer_remaining == 0) {
-        return 0 - (strlen(sp) + 1);
+        // We need all the space we had, plus the remainder of text, at least.
+        return 0 - buffer_len - (strlen(sp) + 1);
     }
     *dp = 0;
     return buffer_len - buffer_remaining;
