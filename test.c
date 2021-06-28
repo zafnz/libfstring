@@ -5,6 +5,8 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+#include <stdarg.h>
 
 #include "fstring.h"
 
@@ -21,38 +23,191 @@ const char *test_callback1(void *data, const char *name)
     return "PASS";
 }
 
+#define S_PASS "\x1b[32mPASS\x1b[0m"
+#define S_FAIL "\x1b[31mFAIL\x1b[0m"
+
+#define TEST_DECLARE()    int total = 0, pass = 0, fail = 0; char *test_name
+#define TEST_NAME(NAME) do { test_name = NAME; total++; } while(0)
+
+#define TEST_ASSERT(TEST)       do {  \
+                    if (TEST) { \
+                        pass++; \
+                        printf("%02d: " S_PASS ": %s\n", total, test_name); \
+                    } else { \
+                        fail++; \
+                        printf("%02d: " S_FAIL ": %s assertion failed: %s\n", total, test_name, #TEST); \
+                    } } while(0)
+
+#define TEST_RESULTS()     do { \
+                    if (fail == 0) { \
+                        printf("\n\n[%d/%d] \x1b[32mAll tests passed succesfully\x1b[0m\n", pass, pass); \
+                    } else { \
+                        printf("\n\n\x1b[31mSome tests failed\x1b[0m: Failed=%d passed=%d total=%d\n", fail, pass, total); \
+                    } } while(0)
+
+
+#define PERF_TEST_COUNT     50000000L
+
+void performance_test()
+{
+    static char buffer[1024];
+    int i;
+    struct timeval tv_start, tv_end;
+    u_int64_t usec;
+
+    printf("Starting perf test\n");
+    gettimeofday(&tv_start, NULL);
+    for(i = PERF_TEST_COUNT; --i > 0;) {
+       lbfstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", fstr_values_cast {
+            fstr_nstr("blah", "TEST"),
+            fstr_end
+        });
+    }
+    gettimeofday(&tv_end, NULL);
+
+    usec = (1000000 * (tv_end.tv_sec - tv_start.tv_sec)) + (tv_end.tv_usec - tv_start.tv_usec);
+    printf("%ld interations. Elapsed time: %llu us (%llu.%06llu seconds)\n", PERF_TEST_COUNT, usec,
+            usec / 1000000, usec % 1000000);
+    return;
+}
+
+
+int calling_test1(char *vl_match, char *str, ...);
+int calling_test2(char *vl_match, char *testing, va_list vl);
+
+
+/* Called with fstr_val_str("boo", "arg"), fstr_val_int("agent", 99), fstr_val_end */
+int calling_test() {
+    return calling_test1(
+        "boom arg 99",
+        "boom {boo} {agent}", 
+        fstr_nstr("boo", "arg"), fstr_nint("agent", 99), fstr_end);
+}
+int calling_test1(char *vl_match, char *str, ...)
+{
+    va_list vl;
+    int r;
+    va_start(vl, str);
+    r = calling_test2(vl_match, str, vl);
+    va_end(vl);
+    return r;
+}
+
+int calling_test2(char *vl_match, char *testing, va_list vl)
+{
+    /* There are many ways to call fstring, lets try them all! 
+
+extern char *fstring(const char *format, fstr_value *, ...);
+extern char *vfstring(const char *format, va_list vl);
+extern char *lfstring(const char *format, fstr_value *values[]);
+
+extern int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *, ...);
+extern int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl);
+extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
+
+     */
+
+    char *str1 = "Testing";
+    char *str2 = "Blah";
+    int x = 10;
+    int y = 12;
+    float f = 3.1415;
+    double d = 3.333333;
+    int r;
+    fstr_value *variables[] = {
+        fstr_int(x),
+        fstr_str(str2),
+        fstr_str(str1),
+        fstr_ndouble("blah", 1.123456),
+        fstr_end
+    };
+    static char buffer[1024];
+    TEST_DECLARE();
+
+    char *result;
+
+
+    TEST_NAME("fstring()");
+    result = fstring("Testing {str1}", fstr_str(str1), fstr_str(str2), fstr_end);
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, "Testing Testing") == 0);
+
+    TEST_NAME("vfstring()");
+    result = vfstring(testing, vl);
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, vl_match) == 0);
+
+    TEST_NAME("lfstring()");
+    result = lfstring("Another {f} test {y}", fstr_values_cast {
+        fstr_str(str2), fstr_float(f), fstr_int(y), fstr_double(d), fstr_end
+    });
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, "Another 3.141500 test 12") == 0);
+
+    TEST_NAME("bfstring()");
+    r = bfstring(buffer, sizeof(buffer), "Testing {x} {str2}", fstr_str(str2), fstr_int(x), fstr_end);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, "Testing 12 str2"));
+
+    TEST_NAME("vbfstring()");
+    r = vbfstring(buffer, sizeof(buffer), testing, vl);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, vl_match));
+
+    TEST_NAME("lbfstring()");
+    r = lbfstring(buffer, sizeof(buffer), "Testing {blah} {str2} {str1} {x} {missing}", variables);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, "Testing 1.123456 Testing Blah 12 "));
+
+    TEST_RESULTS();
+
+    return total;
+}
+
 
 int main(int argc, char *argv[]) 
 {
-    static char buffer[1024];
+    static char buffer[1024], compare[1024];
     int r, i, total = 0, fail = 0, success = 0;
+    char *thing = "magic thingy";
 
-    /* Example showing the quick and easy way to call fstring */
-    fstring(buffer, sizeof(buffer), "test {blah}", (fstring_value[]) {
-        {.name="blah", .value="TEST"},
-        {.name=NULL}
+    total++;
+
+    /* Example showing the quick and easy way to call lbfstring */
+    r = lbfstring(buffer, sizeof(buffer), "test {total}: {blah} {thing} {boo} blah", fstr_values_cast {
+        fstr_int(total),
+        fstr_nstr("blah", "TEST"),
+        fstr_str(thing),
+        fstr_end
     });
-
+    if (r < 0) {
+        printf("%d: "S_FAIL": Quick test failed :(, return: %d\n", total, r);
+        fail++;
+    } else {
+        printf("%d: "S_PASS": Sanity check passed: %s\n", total, buffer);
+        success++;
+    }
     /* values to pass to our tests */
-    fstring_value params[] = {
-        { .name = "LOOKUP", .value="replacement"},
-        { .name = "T", .value="long string"},
-        { .name = "SHORT", .value="sh" },
-        { .name = "LONGLOOKUP", .value = "short"},
-        { .name = "CALLBACK", .value = NULL, .callback = test_callback1, .callback_data = data_check },
-        { .name = "CB2", .value = NULL, .callback = test_callback1, .callback_data = NULL },
-        { .name = NULL}        
+    fstr_value *params[] = {
+        fstr_nstr("LOOKUP", "replacement"),
+        fstr_nstr("T", "long string"),
+        fstr_nstr("SHORT", "sh"),
+        fstr_nstr("LONGLOOKUP", "short"),
+        fstr_ncb("CALLBACK", test_callback1, data_check),
+        fstr_ncb("CB2", test_callback1, NULL),
+        fstr_end       
     };
 
     /* Success tests */
     struct {
         char *test;
         char *match;
+        int retval;
     } tests[] = {
         { "Yet Another {LONGLOOKUP} test", "Yet Another short test" },
         { "{LONGLOOKUP}", "short" },
         { "{T}", "long string" },
-        { "Testing {{ blah", "Testing { blah" },
+        { "Testing {{ blah", "Testing { blah", 14 },
         { "a{SHORT}b", "ashb" },
         { "Testing {LOOKUP} this", "Testing replacement this" },
         { "Blah{T}XXXY", "Blahlong stringXXXY" },
@@ -65,18 +220,21 @@ int main(int argc, char *argv[])
     for(i = 0; tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r = fstring(buffer, sizeof(buffer), tests[i].test, params);
+        r =lbfstring(buffer, sizeof(buffer), tests[i].test, params);
         if (r < 0) {
-            printf("%d: FAIL: Got error code %d, input: %s", total, r, tests[i].test);
+            printf("%d: "S_FAIL": Got error code %d, input: %s\n", total, r, tests[i].test);
             fail++;
         } else if (strcmp(buffer, tests[i].match) != 0) {
-            printf("%d: FAIL: Failed match: \"%s\" didn't match \"%s\"\n", total, buffer, tests[i].match);
+            printf("%d: "S_FAIL": Failed match: \"%s\" didn't match \"%s\"\n", total, buffer, tests[i].match);
             fail++;
-        } else if (r != strlen(tests[i].match)) {
-            printf("%d: FAIL: Returned %d but len should have been %lu\n", total, r, strlen(tests[i].match));
+        } else if (tests[i].retval != 0 && r != tests[i].retval) {
+            printf("%d: "S_FAIL": Returned %d but len should have been %u: %s\n", total, r, tests[i].retval, buffer);
+            fail++;            
+        } else if (tests[i].retval == 0 && r != strlen(tests[i].match)) {
+            printf("%d: "S_FAIL": Returned %d but strlen should have been %lu: %s\n", total, r, strlen(tests[i].match), buffer);
             fail++;
         } else {
-            printf("%d: PASS: %s\n", total, buffer);
+            printf("%d: "S_PASS": %s\n", total, buffer);
             success++;
         }
     }
@@ -98,12 +256,12 @@ int main(int argc, char *argv[])
     for(i = 0; fail_tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r = fstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
+        r =lbfstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
         if (r != fail_tests[i].retval) {
-            printf("%d: FAIL: retval was %d, expecting %d\n", total, r, fail_tests[i].retval);
+            printf("%d: "S_FAIL": retval was %d, expecting %d\n", total, r, fail_tests[i].retval);
             fail++;
         } else {
-            printf("%d: PASS: %d returned correctly\n", total, r);
+            printf("%d: "S_PASS": %d returned correctly\n", total, r);
             success++;
         }
     }
@@ -112,70 +270,100 @@ int main(int argc, char *argv[])
 
     total++;
     memset(buffer, '*', sizeof(buffer));
-    r = fstring(buffer, 8, "{SHORT}", params);
+    r =lbfstring(buffer, 8, "{SHORT}", params);
     if (r != 2) {
         total++;
-        printf("%d: FAIL: short template overrun returned %d\n", total, r);
+        printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
         fail++;
     } else if (buffer[8] != '*') {
-        printf("%d: FAIL: Wrote past buffer size!", total);
+        printf("%d: "S_FAIL": Wrote past buffer size!", total);
         fail++;        
     } else {
-        printf("%d: PASS: short template overrun returned correctly %d\n", total, r);
+        printf("%d: "S_PASS": short template overrun returned correctly %d\n", total, r);
         success++;
     }
 
     total++;
-    r = fstring(buffer, 2, "{T}", params);
+    r =lbfstring(buffer, 2, "{T}", params);
     if (r != -4) {
         total++;
-        printf("%d: FAIL: short template overrun returned %d\n", total, r);
+        printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
         fail++;
     } else {
-        printf("%d: PASS: short template overrun returned correctly %d\n", total, r);
+        printf("%d: "S_PASS": short template overrun returned correctly %d\n", total, r);
         success++;
     }
     total++;
     memset(buffer, '*', sizeof(buffer));
     /* {T} is 10 charcters long */
-    r = fstring(buffer, 5, "{T}", params);
+    r = lbfstring(buffer, 5, "{T}", params);
     /* So we should need 11 bytes to store it */
     if (r != -11) {
-        printf("%d: FAIL: template overrun returned %d\n", total, r);
+        printf("%d: "S_FAIL": template overrun returned %d\n", total, r);
         fail++;
     } else if (buffer[5] != '*') {
-        printf("%d: FAIL: Wrote past buffer size!", total);
+
+        printf("%d: "S_FAIL": Wrote past buffer size!", total);
         fail++;
     } else {
-        printf("%d: PASS: template overrun returned correctly %d\n", total, r);
+        printf("%d: "S_PASS": template overrun returned correctly %d\n", total, r);
         success++;
     }
 
     total++;
-    r = fstring(buffer, sizeof(buffer), "test {XYZ}", (fstring_value[]) {
-        {.name="blah", .value="TEST"},
-        {.name="*", .value="Wildcard"},
-        {.name=NULL}
+    r =lbfstring(buffer, sizeof(buffer), "test {XYZ}", (fstr_value *[]) {
+        fstr_nstr("blah","TEST"),
+        fstr_nstr("*", "Wildcard"),
+        fstr_end
     });   
     if (r < 0) {
-        printf("%d: FAIL: Wildcard returned error: %d\n", total, r);
+        printf("%d: "S_FAIL": Wildcard returned error: %d\n", total, r);
         fail++;
     } else if (r != 13) {
-        printf("%d: FAIL: Wildcard returned bad length %d: %s\n", total, r, buffer);
+        printf("%d: "S_FAIL": Wildcard returned bad length %d: %s\n", total, r, buffer);
         fail++;
     } else if (strcmp(buffer, "test Wildcard") != 0) {
-        printf("%d: FAIL: Wildcard string doesn't match '%s' vs '%s'\n", total, buffer, "test Wildcard");
+        printf("%d: "S_FAIL": Wildcard string doesn't match '%s' vs '%s'\n", total, buffer, "test Wildcard");
         fail++;
     } else {
-        printf("%d: PASS: Wildcard test passed: %s\n", total, buffer);
+        printf("%d: "S_PASS": Wildcard test passed: %s\n", total, buffer);
         success++;
     }
+
+    /* And now the different ways of calling fstring */
+
+    total++;
+    snprintf(compare, sizeof(compare), "We've had %d successful tests, and %d failures with this %s.", success, fail, thing);
+    r = bfstring(buffer, sizeof(buffer), "We've had {success} successful tests, and {fail} failures with this {thing}.", 
+        fstr_str(thing), 
+        fstr_int(success),
+        fstr_int(fail),
+        fstr_end
+    );
+    if (r <= 0) {
+        printf("%d: "S_FAIL": bfstring call returned error %d", total, r);
+        fail++;
+    } else if (strcmp(compare, buffer) != 0) {
+        printf("%d: "S_FAIL": bfstring call failed. Returned unexpected.\nExpected:%s\nGot:%s\n", total, compare, buffer);
+        fail++;
+    } else {
+        printf("%d: "S_PASS": bfstring call passed: %s", total, buffer);
+        success++;
+    }
+
     /* End of checks */
 
     if (fail == 0) {
-        printf("\n\n[%d/%d] All tests passed succesfully\n", success, total);
+        printf("\n\n[%d/%d] \x1b[32mAll tests passed succesfully\x1b[0m\n", success, total);
     } else {
-        printf("\n\nSome tests failed: Failed=%d passed=%d total=%d\n", fail, success, total);
+        printf("\n\n\x1b[31mSome tests failed\x1b[0m: Failed=%d passed=%d total=%d\n", fail, success, total);
+    }
+
+    printf("\n\nCalling tests\n\n");
+    calling_test();
+
+    if (argc > 1 && strcmp(argv[1], "performance") == 0) {
+        performance_test();
     }
     return 0;
 }

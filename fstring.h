@@ -15,6 +15,51 @@
  */
 typedef const char *(*fstring_callback_t)(void *data, const char *name);
 
+
+#define fstr_vt_null    0
+#define fstr_vt_str     1
+#define fstr_vt_int     2
+#define fstr_vt_long    3
+#define fstr_vt_float   4
+#define fstr_vt_double  5
+#define fstr_vt_cb      6
+
+typedef struct {
+    const char *name;
+    char type;
+    const union {
+        const char *s;
+        int i;
+        long l;
+        float f;
+        double d;
+        fstring_callback_t cb;
+    } value;
+    void *cb_data;
+} fstr_value;
+
+#define fstr_values_cast  (fstr_value *[] )
+
+
+#define fstr_nstr(N, V)   &((fstr_value){.name=N, .type=fstr_vt_str, .value.s=V})
+#define fstr_nint(N, V)   &((fstr_value){.name=N, .type=fstr_vt_int, .value.i=V})
+#define fstr_nlong(N, V) &((fstr_value){.name=N, .type=fstr_vt_long, .value.l=V})
+#define fstr_nfloat(N, V) &((fstr_value){.name=N, .type=fstr_vt_float, .value.f=V})
+#define fstr_ndouble(N, V) &((fstr_value){.name=N, .type=fstr_vt_double, .value.d=V})
+
+#define fstr_ncb(N, CB, DATA)   &((fstr_value){.name=N, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
+
+#define fstr_str(X)       &((fstr_value){.name=#X, .type=fstr_vt_str, .value.s=X})
+#define fstr_int(X)       &((fstr_value){.name=#X, .type=fstr_vt_int, .value.i=X})
+#define fstr_long(X)       &((fstr_value){.name=#X, .type=fstr_vt_long, .value.l=X})
+#define fstr_float(X)       &((fstr_value){.name=#X, .type=fstr_vt_float, .value.f=X})
+#define fstr_double(X)       &((fstr_value){.name=#X, .type=fstr_vt_double, .value.d=X})
+
+#define fstr_cb(CB, DATA)      &((fstr_value){.name=#CB, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
+
+#define fstr_end        NULL
+
+
 /**
  * @brief Values to pass to fstring's values list
  * 
@@ -24,7 +69,7 @@ typedef struct {
     const char *value;
     fstring_callback_t callback;
     void *callback_data;
-} fstring_value;
+} fstring_value_OLD;
 
 
 /**
@@ -79,6 +124,39 @@ typedef struct {
  * // Returns "this is a thing which is cool"
  * @endcode
  */
-extern int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values);
+
+
+
+
+extern char *fstring(const char *format, fstr_value *, ...);
+extern char *vfstring(const char *format, va_list vl);
+extern char *lfstring(const char *format, fstr_value *values[]);
+
+extern int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *, ...);
+extern int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl);
+extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
+
+
+/**
+ * @brief Formatted string using supplied variables with malloc'd output
+ * 
+ * @details     This function is identical to fstring, except it dynamically allocates the
+ *              memory for you.
+ * 
+ * @param[in]   format      See fstring for an explanation
+ * @param[in]   values      See fstring for an explanation
+ * 
+ * @return      The formatted string with the variables replaced. 
+ *              It will return NULL if there is a parsing error in the string or 
+ *              if the buffer is over 1MB.
+ *              It is up to you to free() the string.
+ * 
+ * @code
+ *      char *result = dfstring("{hello}", (fstring_value[]) {{.name="hello", .value="world"}});
+ *      puts(result); // prints "world"
+ */
+
+//extern char *dfstring(const char *format, fstring_value *values);
+
 
 #endif
