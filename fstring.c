@@ -18,19 +18,60 @@
  * Internal function used to lookup the value for the given name from the values list
  * Will call the callback function if provided.
  */
-const char *_value_lookup(const char *name, fstring_value *values)
+const char *_value_lookup(const char *name, fstr_value *values[])
 {
-    for(int i = 0; values && values[i].name != NULL; i++) {
-        if (strcasecmp(name, values[i].name) == 0 || (values[i].name[0] == '*' && values[i].name[1] == 0)) {
-            if (values[i].value == NULL && values[i].callback != NULL) {
-                return (values[i].callback)(values[i].callback_data, name);
-            } else {
-                return values[i].value;
+    int i;
+    static char tmpbuff[128];
+    fstr_value *val;
+    for(i = 0; values && values[i] != NULL && values[i]->name != NULL; i++) {
+        val = values[i];
+        if (strcasecmp(name, val->name) == 0 || (val->name[0] == '*' && val->name[1] == 0)) {
+            switch(val->type) {
+            case fstr_vt_str: 
+                return val->value.s; 
+            case fstr_vt_int:
+                //ntoa is not standard
+                snprintf(tmpbuff, sizeof(tmpbuff), "%d", val->value.i);
+                return tmpbuff;
+            case fstr_vt_cb:
+                return (val->value.cb)(val->cb_data, name);
             }
+            return values[i]->value.s;
         }
     }
     return NULL;
 }
+
+void _debug_dump_values(fstr_value *values[])
+{
+    int i;
+    static char tmpbuff[128];
+    const char *str;
+    fstr_value *val;
+    printf("Dumping values list\n");
+    for(i = 0; values && values[i] != NULL && values[i]->name != NULL; i++) {
+        val = values[i];
+        switch(val->type) {
+            case fstr_vt_str: 
+                str = val->value.s; 
+                break;
+            case fstr_vt_int:
+                //ntoa is not standard
+                snprintf(tmpbuff, sizeof(tmpbuff), "%d", val->value.i);
+                str = tmpbuff;
+                break;
+            case fstr_vt_cb:
+                str = (val->value.cb)(val->cb_data, val->name);
+                break;
+            default:
+                snprintf(tmpbuff, sizeof(tmpbuff), "INVALID TYPE %d", val->type);
+        }
+        printf("#%d: %s type %d: val: %s\n", i, val->name, val->type, str);
+    }
+    printf("End of list\n");
+}
+
+
 
 #define MAX_BUFFER_LEN      1048576
 /**
@@ -41,6 +82,7 @@ const char *_value_lookup(const char *name, fstring_value *values)
  * It will return an error when there is an unterminated curly brace
  * or the required buffer is over 1MB.
  */
+#if 0
 char *dfstring(const char *format, fstring_value *values)
 {
     int r;
@@ -51,7 +93,7 @@ char *dfstring(const char *format, fstring_value *values)
         buffer_len *= 2;
         if (buffer_len > MAX_BUFFER_LEN) return NULL;
         buffer = (char *) malloc(sizeof(char) * buffer_len);
-        r = fstring(buffer, buffer_len, format, values);
+        r = bfstring(buffer, buffer_len, format, values);
         if (r == -1) {
             // Special case, it's an error
             free(buffer);
@@ -60,9 +102,33 @@ char *dfstring(const char *format, fstring_value *values)
     } while (r < -1);
     return buffer;
 }
+#endif 
+
+int bfstring(char *buffer, size_t buffer_len, const char *format, ...)
+{
+    int r, list_size = 10, l_count = 0;
+    va_list vl;
+    fstr_value *val;
+    fstr_value **list = calloc(sizeof(fstr_value *),list_size+1);
+    va_start(vl, format);
+    do {
+        if (l_count == list_size) {
+            list_size *= 2;
+            list = realloc(list, sizeof(fstr_value *) * (list_size + 1));
+        }
+        val = va_arg(vl, fstr_value *);
+        list[l_count] = val;
+        l_count++;
+    } while(val != NULL);
+    va_end(vl);
+    //_debug_dump_values(list);
+    r = blfstring(buffer, buffer_len, format, list);
+    free(list);
+    return r;
+}
 
 /* Buffered fstring.*/
-int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values)
+int blfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[])
 {
     const char *sp;
     char *dp, *name;

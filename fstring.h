@@ -15,6 +15,44 @@
  */
 typedef const char *(*fstring_callback_t)(void *data, const char *name);
 
+
+#define fstr_vt_null    0
+#define fstr_vt_str     1
+#define fstr_vt_int     2
+#define fstr_vt_long    3
+#define fstr_vt_float   4
+#define fstr_vt_double  5
+#define fstr_vt_cb      6
+
+typedef struct {
+    const char *name;
+    char type;
+    const union {
+        const char *s;
+        int i;
+        long l;
+        float f;
+        double d;
+        fstring_callback_t cb;
+    } value;
+    void *cb_data;
+} fstr_value;
+
+#define fstr_values_cast  (fstr_value *[] )
+
+
+#define fstr_nstr(N, V)   &((fstr_value){.name=N, .type=fstr_vt_str, .value.s=V})
+#define fstr_nint(N, V)   &((fstr_value){.name=N, .type=fstr_vt_int, .value.i=V})
+
+#define fstr_ncb(N, CB, DATA)   &((fstr_value){.name=N, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
+
+#define fstr_str(X)       &((fstr_value){.name=#X, .type=fstr_vt_str, .value.s=X})
+#define fstr_int(X)       &((fstr_value){.name=#X, .type=fstr_vt_int, .value.i=X})
+#define fstr_cb(CB, DATA)      &((fstr_value){.name=#CB, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
+
+#define fstr_end        NULL
+
+
 /**
  * @brief Values to pass to fstring's values list
  * 
@@ -24,7 +62,7 @@ typedef struct {
     const char *value;
     fstring_callback_t callback;
     void *callback_data;
-} fstring_value;
+} fstring_value_OLD;
 
 
 /**
@@ -79,7 +117,13 @@ typedef struct {
  * // Returns "this is a thing which is cool"
  * @endcode
  */
-extern int fstring(char *buffer, size_t buffer_len, const char *format, fstring_value *values);
+
+
+extern int bfstring(char *buffer, size_t buffer_len, const char *format, ...);
+
+extern int blfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
+//extern char *lfstring(const char *format, fstr_value *values[]);
+//extern char *fstring(const char *format, ...);
 
 
 /**
@@ -101,7 +145,7 @@ extern int fstring(char *buffer, size_t buffer_len, const char *format, fstring_
  *      puts(result); // prints "world"
  */
 
-extern char *dfstring(const char *format, fstring_value *values);
+//extern char *dfstring(const char *format, fstring_value *values);
 
 
 #endif

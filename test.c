@@ -38,9 +38,9 @@ void performance_test()
     printf("Starting perf test\n");
     gettimeofday(&tv_start, NULL);
     for(i = PERF_TEST_COUNT; --i > 0;) {
-        fstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", (fstring_value[]) {
-            {.name="blah", .value="TEST"},
-            {.name=NULL}
+       blfstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", fstr_values_cast {
+            fstr_nstr("blah", "TEST"),
+            fstr_end
         });
     }
     gettimeofday(&tv_end, NULL);
@@ -53,24 +53,35 @@ void performance_test()
 
 int main(int argc, char *argv[]) 
 {
-    static char buffer[1024];
+    static char buffer[1024], compare[1024];
     int r, i, total = 0, fail = 0, success = 0;
+    char *thing = "magic thingy";
 
-    /* Example showing the quick and easy way to call fstring */
-    fstring(buffer, sizeof(buffer), "test {blah}", (fstring_value[]) {
-        {.name="blah", .value="TEST"},
-        {.name=NULL}
+    total++;
+
+    /* Example showing the quick and easy way to call blfstring */
+    r = blfstring(buffer, sizeof(buffer), "test {total}: {blah} {thing} {boo} blah", fstr_values_cast {
+        fstr_int(total),
+        fstr_nstr("blah", "TEST"),
+        fstr_str(thing),
+        fstr_end
     });
-
+    if (r < 0) {
+        printf("%d: "S_FAIL": Quick test failed :(, return: %d\n", total, r);
+        fail++;
+    } else {
+        printf("%d: "S_PASS": Sanity check passed: %s\n", total, buffer);
+        success++;
+    }
     /* values to pass to our tests */
-    fstring_value params[] = {
-        { .name = "LOOKUP", .value="replacement"},
-        { .name = "T", .value="long string"},
-        { .name = "SHORT", .value="sh" },
-        { .name = "LONGLOOKUP", .value = "short"},
-        { .name = "CALLBACK", .value = NULL, .callback = test_callback1, .callback_data = data_check },
-        { .name = "CB2", .value = NULL, .callback = test_callback1, .callback_data = NULL },
-        { .name = NULL}        
+    fstr_value *params[] = {
+        fstr_nstr("LOOKUP", "replacement"),
+        fstr_nstr("T", "long string"),
+        fstr_nstr("SHORT", "sh"),
+        fstr_nstr("LONGLOOKUP", "short"),
+        fstr_ncb("CALLBACK", test_callback1, data_check),
+        fstr_ncb("CB2", test_callback1, NULL),
+        fstr_end       
     };
 
     /* Success tests */
@@ -95,7 +106,7 @@ int main(int argc, char *argv[])
     for(i = 0; tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r = fstring(buffer, sizeof(buffer), tests[i].test, params);
+        r =blfstring(buffer, sizeof(buffer), tests[i].test, params);
         if (r < 0) {
             printf("%d: "S_FAIL": Got error code %d, input: %s\n", total, r, tests[i].test);
             fail++;
@@ -131,7 +142,7 @@ int main(int argc, char *argv[])
     for(i = 0; fail_tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r = fstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
+        r =blfstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
         if (r != fail_tests[i].retval) {
             printf("%d: "S_FAIL": retval was %d, expecting %d\n", total, r, fail_tests[i].retval);
             fail++;
@@ -145,7 +156,7 @@ int main(int argc, char *argv[])
 
     total++;
     memset(buffer, '*', sizeof(buffer));
-    r = fstring(buffer, 8, "{SHORT}", params);
+    r =blfstring(buffer, 8, "{SHORT}", params);
     if (r != 2) {
         total++;
         printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
@@ -159,7 +170,7 @@ int main(int argc, char *argv[])
     }
 
     total++;
-    r = fstring(buffer, 2, "{T}", params);
+    r =blfstring(buffer, 2, "{T}", params);
     if (r != -4) {
         total++;
         printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
@@ -171,12 +182,13 @@ int main(int argc, char *argv[])
     total++;
     memset(buffer, '*', sizeof(buffer));
     /* {T} is 10 charcters long */
-    r = fstring(buffer, 5, "{T}", params);
+    r = blfstring(buffer, 5, "{T}", params);
     /* So we should need 11 bytes to store it */
     if (r != -11) {
         printf("%d: "S_FAIL": template overrun returned %d\n", total, r);
         fail++;
     } else if (buffer[5] != '*') {
+
         printf("%d: "S_FAIL": Wrote past buffer size!", total);
         fail++;
     } else {
@@ -185,10 +197,10 @@ int main(int argc, char *argv[])
     }
 
     total++;
-    r = fstring(buffer, sizeof(buffer), "test {XYZ}", (fstring_value[]) {
-        {.name="blah", .value="TEST"},
-        {.name="*", .value="Wildcard"},
-        {.name=NULL}
+    r =blfstring(buffer, sizeof(buffer), "test {XYZ}", (fstr_value *[]) {
+        fstr_nstr("blah","TEST"),
+        fstr_nstr("*", "Wildcard"),
+        fstr_end
     });   
     if (r < 0) {
         printf("%d: "S_FAIL": Wildcard returned error: %d\n", total, r);
@@ -203,6 +215,28 @@ int main(int argc, char *argv[])
         printf("%d: "S_PASS": Wildcard test passed: %s\n", total, buffer);
         success++;
     }
+
+    /* And now the different ways of calling fstring */
+
+    total++;
+    snprintf(compare, sizeof(compare), "We've had %d successful tests, and %d failures with this %s.", success, fail, thing);
+    r = bfstring(buffer, sizeof(buffer), "We've had {success} successful tests, and {fail} failures with this {thing}.", 
+        fstr_str(thing), 
+        fstr_int(success),
+        fstr_int(fail),
+        fstr_end
+    );
+    if (r <= 0) {
+        printf("%d: "S_FAIL": bfstring call returned error %d", total, r);
+        fail++;
+    } else if (strcmp(compare, buffer) != 0) {
+        printf("%d: "S_FAIL": bfstring call failed. Returned unexpected.\nExpected:%s\nGot:%s\n", total, compare, buffer);
+        fail++;
+    } else {
+        printf("%d: "S_PASS": bfstring call passed: %s", total, buffer);
+    }
+
+
     /* End of checks */
 
     if (fail == 0) {
