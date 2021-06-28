@@ -4,6 +4,23 @@
  *  @copyright Nick Clifford, 2021
  * 
  *  @author - Nick Clifford (nick@crypto.geek.nz)
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.    
  */
 
 #include <stdio.h>
@@ -14,19 +31,30 @@
 
 #include "fstring.h"
 
+
+/* The maximum size of a buffer that will be allocated by fstring, vfstring or lfstring */
+#define MAX_BUFFER_LEN      1048576
+
+
 fstr_value **_va_to_list(fstr_value *first, va_list vl);
 
+
 /**
- * Internal function used to lookup the value for the given name from the values list
+ * @brief Internal function used to lookup the value for the given name from the values list
+ * 
  * Will call the callback function if provided.
+ * 
+ * @return Returns the value for that name, or NULL if not found.
  */
 const char *_value_lookup(const char *name, fstr_value *values[])
 {
     int i;
     static char tmpbuff[128];
     fstr_value *val;
+    
     for(i = 0; values && values[i] != NULL && values[i]->name != NULL; i++) {
         val = values[i];
+
         if (strcasecmp(name, val->name) == 0 || (val->name[0] == '*' && val->name[1] == 0)) {
             switch(val->type) {
             case fstr_vt_str: 
@@ -45,13 +73,20 @@ const char *_value_lookup(const char *name, fstr_value *values[])
                 return tmpbuff;
             case fstr_vt_cb:
                 return (val->value.cb)(val->cb_data, name);
+            default:
+                fprintf(stderr, "Unknown value type\n");
+                return NULL;
             }
-            return values[i]->value.s;
         }
     }
     return NULL;
 }
 
+
+/**
+ * @brief Internal debug function, prints the contents of a value list
+ * 
+ */
 void _debug_dump_values(fstr_value *values[])
 {
     int i;
@@ -82,10 +117,6 @@ void _debug_dump_values(fstr_value *values[])
 }
 
 
-
-#define MAX_BUFFER_LEN      1048576
-
-
 fstr_value **_va_to_list(fstr_value *first, va_list vl)
 {
     int list_size = 10, l_count = 0;
@@ -105,7 +136,6 @@ fstr_value **_va_to_list(fstr_value *first, va_list vl)
     //_debug_dump_values(list);
     return list;
 }
-
 
 
 char *fstring(const char *format, fstr_value *first, ...)
@@ -186,6 +216,7 @@ int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *fi
     return r;
 }
 
+
 int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl)
 {
     int r;
@@ -195,7 +226,7 @@ int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl)
     return r;
 }
 
-/* Buffered fstring.*/
+
 int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[])
 {
     const char *sp;

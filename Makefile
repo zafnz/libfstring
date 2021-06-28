@@ -26,9 +26,9 @@ build:
 	@echo "Compiling fstring library"
 	@$(CC) $(CFLAGS) -fPIC -c fstring.c -o fstring.o
 	@echo "Linking"
-	#@$(LD) $(LDFLAGS) -o $(DNAME) fstring.o
-	#@$(AR) $(ARFLAGS) $(SNAME) fstring.o >/dev/null
-	#@ldconfig -v -n . >/dev/null
+	@$(LD) $(LDFLAGS) -o $(DNAME) fstring.o
+	@$(AR) $(ARFLAGS) $(SNAME) fstring.o >/dev/null
+	@ldconfig -v -n . >/dev/null
 	@echo "Cominging tests"
 	@$(CC) $(TEST_CFLAGS) test.c fstring.c -o test
 

@@ -4,6 +4,23 @@
  *  @copyright Copyright 2021 - Nick Clifford <nick@crypto.geek.nz>
  * 
  *  @author - Nick Clifford (nick@crypto.geek.nz)
+ * 
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.    
  */
 #ifndef include_fstring_h
 #define include_fstring_h
@@ -15,7 +32,6 @@
  */
 typedef const char *(*fstring_callback_t)(void *data, const char *name);
 
-
 #define fstr_vt_null    0
 #define fstr_vt_str     1
 #define fstr_vt_int     2
@@ -24,6 +40,10 @@ typedef const char *(*fstring_callback_t)(void *data, const char *name);
 #define fstr_vt_double  5
 #define fstr_vt_cb      6
 
+/**
+ * @brief Values to pass to fstring's values list
+ * 
+ */
 typedef struct {
     const char *name;
     char type;
@@ -41,35 +61,22 @@ typedef struct {
 #define fstr_values_cast  (fstr_value *[] )
 
 
-#define fstr_nstr(N, V)   &((fstr_value){.name=N, .type=fstr_vt_str, .value.s=V})
-#define fstr_nint(N, V)   &((fstr_value){.name=N, .type=fstr_vt_int, .value.i=V})
-#define fstr_nlong(N, V) &((fstr_value){.name=N, .type=fstr_vt_long, .value.l=V})
-#define fstr_nfloat(N, V) &((fstr_value){.name=N, .type=fstr_vt_float, .value.f=V})
-#define fstr_ndouble(N, V) &((fstr_value){.name=N, .type=fstr_vt_double, .value.d=V})
+#define fstr_nstr(N, V)     &((fstr_value){.name=N, .type=fstr_vt_str, .value.s=V})
+#define fstr_nint(N, V)     &((fstr_value){.name=N, .type=fstr_vt_int, .value.i=V})
+#define fstr_nlong(N, V)    &((fstr_value){.name=N, .type=fstr_vt_long, .value.l=V})
+#define fstr_nfloat(N, V)   &((fstr_value){.name=N, .type=fstr_vt_float, .value.f=V})
+#define fstr_ndouble(N, V)  &((fstr_value){.name=N, .type=fstr_vt_double, .value.d=V})
+
+#define fstr_str(X)         &((fstr_value){.name=#X, .type=fstr_vt_str, .value.s=X})
+#define fstr_int(X)         &((fstr_value){.name=#X, .type=fstr_vt_int, .value.i=X})
+#define fstr_long(X)        &((fstr_value){.name=#X, .type=fstr_vt_long, .value.l=X})
+#define fstr_float(X)       &((fstr_value){.name=#X, .type=fstr_vt_float, .value.f=X})
+#define fstr_double(X)      &((fstr_value){.name=#X, .type=fstr_vt_double, .value.d=X})
 
 #define fstr_ncb(N, CB, DATA)   &((fstr_value){.name=N, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
-
-#define fstr_str(X)       &((fstr_value){.name=#X, .type=fstr_vt_str, .value.s=X})
-#define fstr_int(X)       &((fstr_value){.name=#X, .type=fstr_vt_int, .value.i=X})
-#define fstr_long(X)       &((fstr_value){.name=#X, .type=fstr_vt_long, .value.l=X})
-#define fstr_float(X)       &((fstr_value){.name=#X, .type=fstr_vt_float, .value.f=X})
-#define fstr_double(X)       &((fstr_value){.name=#X, .type=fstr_vt_double, .value.d=X})
-
 #define fstr_cb(CB, DATA)      &((fstr_value){.name=#CB, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
 
 #define fstr_end        NULL
-
-
-/**
- * @brief Values to pass to fstring's values list
- * 
- */
-typedef struct {
-    const char *name;
-    const char *value;
-    fstring_callback_t callback;
-    void *callback_data;
-} fstring_value_OLD;
 
 
 /**
@@ -156,7 +163,6 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
  *      puts(result); // prints "world"
  */
 
-//extern char *dfstring(const char *format, fstring_value *values);
 
 
 #endif
