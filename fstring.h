@@ -43,11 +43,18 @@ typedef struct {
 
 #define fstr_nstr(N, V)   &((fstr_value){.name=N, .type=fstr_vt_str, .value.s=V})
 #define fstr_nint(N, V)   &((fstr_value){.name=N, .type=fstr_vt_int, .value.i=V})
+#define fstr_nlong(N, V) &((fstr_value){.name=N, .type=fstr_vt_long, .value.l=V})
+#define fstr_nfloat(N, V) &((fstr_value){.name=N, .type=fstr_vt_float, .value.f=V})
+#define fstr_ndouble(N, V) &((fstr_value){.name=N, .type=fstr_vt_double, .value.d=V})
 
 #define fstr_ncb(N, CB, DATA)   &((fstr_value){.name=N, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
 
 #define fstr_str(X)       &((fstr_value){.name=#X, .type=fstr_vt_str, .value.s=X})
 #define fstr_int(X)       &((fstr_value){.name=#X, .type=fstr_vt_int, .value.i=X})
+#define fstr_long(X)       &((fstr_value){.name=#X, .type=fstr_vt_long, .value.l=X})
+#define fstr_float(X)       &((fstr_value){.name=#X, .type=fstr_vt_float, .value.f=X})
+#define fstr_double(X)       &((fstr_value){.name=#X, .type=fstr_vt_double, .value.d=X})
+
 #define fstr_cb(CB, DATA)      &((fstr_value){.name=#CB, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
 
 #define fstr_end        NULL
@@ -119,11 +126,15 @@ typedef struct {
  */
 
 
-extern int bfstring(char *buffer, size_t buffer_len, const char *format, ...);
 
-extern int blfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
-//extern char *lfstring(const char *format, fstr_value *values[]);
-//extern char *fstring(const char *format, ...);
+
+extern char *fstring(const char *format, fstr_value *, ...);
+extern char *vfstring(const char *format, va_list vl);
+extern char *lfstring(const char *format, fstr_value *values[]);
+
+extern int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *, ...);
+extern int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl);
+extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
 
 
 /**

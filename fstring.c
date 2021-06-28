@@ -14,6 +14,8 @@
 
 #include "fstring.h"
 
+fstr_value **_va_to_list(fstr_value *first, va_list vl);
+
 /**
  * Internal function used to lookup the value for the given name from the values list
  * Will call the callback function if provided.
@@ -30,8 +32,16 @@ const char *_value_lookup(const char *name, fstr_value *values[])
             case fstr_vt_str: 
                 return val->value.s; 
             case fstr_vt_int:
-                //ntoa is not standard
                 snprintf(tmpbuff, sizeof(tmpbuff), "%d", val->value.i);
+                return tmpbuff;
+            case fstr_vt_long:
+                snprintf(tmpbuff, sizeof(tmpbuff), "%ld", val->value.l);
+                return tmpbuff;
+            case fstr_vt_float:
+                snprintf(tmpbuff, sizeof(tmpbuff), "%f", val->value.f);
+                return tmpbuff;
+            case fstr_vt_double:
+                snprintf(tmpbuff, sizeof(tmpbuff), "%lf", val->value.d);
                 return tmpbuff;
             case fstr_vt_cb:
                 return (val->value.cb)(val->cb_data, name);
@@ -74,43 +84,15 @@ void _debug_dump_values(fstr_value *values[])
 
 
 #define MAX_BUFFER_LEN      1048576
-/**
- * A dynamic version of fstring, it works exactly like fstring,
- * but it is (almost) always guarenteed to return a string, as it
- * will allocate a memory buffer large enough.
- * It is up to you to free() the memory
- * It will return an error when there is an unterminated curly brace
- * or the required buffer is over 1MB.
- */
-#if 0
-char *dfstring(const char *format, fstring_value *values)
-{
-    int r;
-    size_t buffer_len = strlen(format) + 5; // Ensure we always have a little room.
-    char *buffer = NULL;
-    do {
-        if (buffer) free(buffer);
-        buffer_len *= 2;
-        if (buffer_len > MAX_BUFFER_LEN) return NULL;
-        buffer = (char *) malloc(sizeof(char) * buffer_len);
-        r = bfstring(buffer, buffer_len, format, values);
-        if (r == -1) {
-            // Special case, it's an error
-            free(buffer);
-            return NULL;
-        }
-    } while (r < -1);
-    return buffer;
-}
-#endif 
 
-int bfstring(char *buffer, size_t buffer_len, const char *format, ...)
+
+fstr_value **_va_to_list(fstr_value *first, va_list vl)
 {
-    int r, list_size = 10, l_count = 0;
-    va_list vl;
+    int list_size = 10, l_count = 0;
     fstr_value *val;
     fstr_value **list = calloc(sizeof(fstr_value *),list_size+1);
-    va_start(vl, format);
+
+    if (first) list[l_count++] = first;
     do {
         if (l_count == list_size) {
             list_size *= 2;
@@ -120,15 +102,101 @@ int bfstring(char *buffer, size_t buffer_len, const char *format, ...)
         list[l_count] = val;
         l_count++;
     } while(val != NULL);
-    va_end(vl);
     //_debug_dump_values(list);
-    r = blfstring(buffer, buffer_len, format, list);
+    return list;
+}
+
+
+
+char *fstring(const char *format, fstr_value *first, ...)
+{
+    char *r;
+    va_list vl;
+    fstr_value **list;
+    va_start(vl, first);
+    list = _va_to_list(first, vl);    
+    va_end(vl);
+    r = lfstring(format, list);
+    free(list);
+    return r;
+}
+
+
+char *vfstring(const char *format, va_list vl)
+{
+    fstr_value **list = _va_to_list(NULL, vl);    
+    char *r = lfstring(format, list);
+    free(list);
+    return r;
+}
+
+
+char *lfstring(const char *format, fstr_value **list)
+{
+    int r;
+    size_t buffer_len = strlen(format) + 20; // Ensure we always have a little room.
+    char *buffer = NULL;
+
+    if (*format == 0) return strdup("");
+
+    while(buffer_len < MAX_BUFFER_LEN) {
+        buffer = (char *)malloc(sizeof(char) * buffer_len);
+    
+        r = lbfstring(buffer, buffer_len, format, list);
+    
+        if (r > 0) {
+            return buffer;
+        } else if (r == 0 || r == -1) {
+            // Both of these results indicate an error condition.
+            return NULL;
+        } else if (r < 0) {
+            /* Need to resize. We coud realloc, but that copys the buffer, which we don't need. */
+            free(buffer);
+            r *= -1; /* Make positive number */
+            if (r < buffer_len) {
+                /* Weird, we were asked to supply a smaller buffer. */
+                fprintf(stderr, "Asked to supply a smaller buffer. Gave %lu got %d?!\n", buffer_len, r);
+                buffer_len *= 2;
+            } else {
+                buffer_len = r * 2;
+            }
+        }
+    }
+    fprintf(stderr, "fstring.c: Maximum buffer exceeded: %lu\n", buffer_len);
+    return NULL;
+}
+
+
+int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *first, ...)
+{
+    /* What's with the "first" arg? It's just to ensure that people don't call
+     * bfstring(buff, l, "blah", fstr_list )
+     * when the should have called
+     * lbfstring(buff, l, "blah", fstr_list )
+     */
+    int r;
+    va_list vl;
+    fstr_value **list;
+    va_start(vl, first);
+    
+    list = _va_to_list(first, vl);    
+    va_end(vl);
+    r = lbfstring(buffer, buffer_len, format, list);
+    free(list);
+    return r;
+}
+
+int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl)
+{
+    int r;
+    fstr_value **list = _va_to_list(NULL, vl);    
+    r = lbfstring(buffer, buffer_len, format, list);
     free(list);
     return r;
 }
 
 /* Buffered fstring.*/
-int blfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[])
+int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[])
 {
     const char *sp;
     char *dp, *name;

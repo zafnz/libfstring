@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <stdarg.h>
 
 #include "fstring.h"
 
@@ -25,6 +26,25 @@ const char *test_callback1(void *data, const char *name)
 #define S_PASS "\x1b[32mPASS\x1b[0m"
 #define S_FAIL "\x1b[31mFAIL\x1b[0m"
 
+#define TEST_DECLARE()    int total = 0, pass = 0, fail = 0; char *test_name
+#define TEST_NAME(NAME) do { test_name = NAME; total++; } while(0)
+
+#define TEST_ASSERT(TEST)       do {  \
+                    if (TEST) { \
+                        pass++; \
+                        printf("%02d: " S_PASS ": %s\n", total, test_name); \
+                    } else { \
+                        fail++; \
+                        printf("%02d: " S_FAIL ": %s assertion failed: %s\n", total, test_name, #TEST); \
+                    } } while(0)
+
+#define TEST_RESULTS()     do { \
+                    if (fail == 0) { \
+                        printf("\n\n[%d/%d] \x1b[32mAll tests passed succesfully\x1b[0m\n", pass, pass); \
+                    } else { \
+                        printf("\n\n\x1b[31mSome tests failed\x1b[0m: Failed=%d passed=%d total=%d\n", fail, pass, total); \
+                    } } while(0)
+
 
 #define PERF_TEST_COUNT     50000000L
 
@@ -38,7 +58,7 @@ void performance_test()
     printf("Starting perf test\n");
     gettimeofday(&tv_start, NULL);
     for(i = PERF_TEST_COUNT; --i > 0;) {
-       blfstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", fstr_values_cast {
+       lbfstring(buffer, sizeof(buffer), "test {blah} thing {BLAH} {thing} testing one two three", fstr_values_cast {
             fstr_nstr("blah", "TEST"),
             fstr_end
         });
@@ -48,6 +68,100 @@ void performance_test()
     usec = (1000000 * (tv_end.tv_sec - tv_start.tv_sec)) + (tv_end.tv_usec - tv_start.tv_usec);
     printf("%ld interations. Elapsed time: %llu us (%llu.%06llu seconds)\n", PERF_TEST_COUNT, usec,
             usec / 1000000, usec % 1000000);
+    return;
+}
+
+
+int calling_test1(char *vl_match, char *str, ...);
+int calling_test2(char *vl_match, char *testing, va_list vl);
+
+
+/* Called with fstr_val_str("boo", "arg"), fstr_val_int("agent", 99), fstr_val_end */
+int calling_test() {
+    return calling_test1(
+        "boom arg 99",
+        "boom {boo} {agent}", 
+        fstr_nstr("boo", "arg"), fstr_nint("agent", 99), fstr_end);
+}
+int calling_test1(char *vl_match, char *str, ...)
+{
+    va_list vl;
+    int r;
+    va_start(vl, str);
+    r = calling_test2(vl_match, str, vl);
+    va_end(vl);
+    return r;
+}
+
+int calling_test2(char *vl_match, char *testing, va_list vl)
+{
+    /* There are many ways to call fstring, lets try them all! 
+
+extern char *fstring(const char *format, fstr_value *, ...);
+extern char *vfstring(const char *format, va_list vl);
+extern char *lfstring(const char *format, fstr_value *values[]);
+
+extern int bfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *, ...);
+extern int vbfstring(char *buffer, size_t buffer_len, const char *format, va_list vl);
+extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
+
+     */
+
+    char *str1 = "Testing";
+    char *str2 = "Blah";
+    int x = 10;
+    int y = 12;
+    float f = 3.1415;
+    double d = 3.333333;
+    int r;
+    fstr_value *variables[] = {
+        fstr_int(x),
+        fstr_str(str2),
+        fstr_str(str1),
+        fstr_ndouble("blah", 1.123456),
+        fstr_end
+    };
+    static char buffer[1024];
+    TEST_DECLARE();
+
+    char *result;
+
+
+    TEST_NAME("fstring()");
+    result = fstring("Testing {str1}", fstr_str(str1), fstr_str(str2), fstr_end);
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, "Testing Testing") == 0);
+
+    TEST_NAME("vfstring()");
+    result = vfstring(testing, vl);
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, vl_match) == 0);
+
+    TEST_NAME("lfstring()");
+    result = lfstring("Another {f} test {y}", fstr_values_cast {
+        fstr_str(str2), fstr_float(f), fstr_int(y), fstr_double(d), fstr_end
+    });
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, "Another 3.141500 test 12") == 0);
+
+    TEST_NAME("bfstring()");
+    r = bfstring(buffer, sizeof(buffer), "Testing {x} {str2}", fstr_str(str2), fstr_int(x), fstr_end);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, "Testing 12 str2"));
+
+    TEST_NAME("vbfstring()");
+    r = vbfstring(buffer, sizeof(buffer), testing, vl);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, vl_match));
+
+    TEST_NAME("lbfstring()");
+    r = lbfstring(buffer, sizeof(buffer), "Testing {blah} {str2} {str1} {x} {missing}", variables);
+    TEST_ASSERT(r > 0);
+    TEST_ASSERT(strcmp(result, "Testing 1.123456 Testing Blah 12 "));
+
+    TEST_RESULTS();
+
+    return total;
 }
 
 
@@ -59,8 +173,8 @@ int main(int argc, char *argv[])
 
     total++;
 
-    /* Example showing the quick and easy way to call blfstring */
-    r = blfstring(buffer, sizeof(buffer), "test {total}: {blah} {thing} {boo} blah", fstr_values_cast {
+    /* Example showing the quick and easy way to call lbfstring */
+    r = lbfstring(buffer, sizeof(buffer), "test {total}: {blah} {thing} {boo} blah", fstr_values_cast {
         fstr_int(total),
         fstr_nstr("blah", "TEST"),
         fstr_str(thing),
@@ -106,7 +220,7 @@ int main(int argc, char *argv[])
     for(i = 0; tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r =blfstring(buffer, sizeof(buffer), tests[i].test, params);
+        r =lbfstring(buffer, sizeof(buffer), tests[i].test, params);
         if (r < 0) {
             printf("%d: "S_FAIL": Got error code %d, input: %s\n", total, r, tests[i].test);
             fail++;
@@ -142,7 +256,7 @@ int main(int argc, char *argv[])
     for(i = 0; fail_tests[i].test != NULL; i++) {
         memset(buffer, '*', sizeof(buffer));
         total++;
-        r =blfstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
+        r =lbfstring(buffer, fail_tests[i].buff_len, fail_tests[i].test, params);
         if (r != fail_tests[i].retval) {
             printf("%d: "S_FAIL": retval was %d, expecting %d\n", total, r, fail_tests[i].retval);
             fail++;
@@ -156,7 +270,7 @@ int main(int argc, char *argv[])
 
     total++;
     memset(buffer, '*', sizeof(buffer));
-    r =blfstring(buffer, 8, "{SHORT}", params);
+    r =lbfstring(buffer, 8, "{SHORT}", params);
     if (r != 2) {
         total++;
         printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
@@ -170,7 +284,7 @@ int main(int argc, char *argv[])
     }
 
     total++;
-    r =blfstring(buffer, 2, "{T}", params);
+    r =lbfstring(buffer, 2, "{T}", params);
     if (r != -4) {
         total++;
         printf("%d: "S_FAIL": short template overrun returned %d\n", total, r);
@@ -182,7 +296,7 @@ int main(int argc, char *argv[])
     total++;
     memset(buffer, '*', sizeof(buffer));
     /* {T} is 10 charcters long */
-    r = blfstring(buffer, 5, "{T}", params);
+    r = lbfstring(buffer, 5, "{T}", params);
     /* So we should need 11 bytes to store it */
     if (r != -11) {
         printf("%d: "S_FAIL": template overrun returned %d\n", total, r);
@@ -197,7 +311,7 @@ int main(int argc, char *argv[])
     }
 
     total++;
-    r =blfstring(buffer, sizeof(buffer), "test {XYZ}", (fstr_value *[]) {
+    r =lbfstring(buffer, sizeof(buffer), "test {XYZ}", (fstr_value *[]) {
         fstr_nstr("blah","TEST"),
         fstr_nstr("*", "Wildcard"),
         fstr_end
@@ -234,8 +348,8 @@ int main(int argc, char *argv[])
         fail++;
     } else {
         printf("%d: "S_PASS": bfstring call passed: %s", total, buffer);
+        success++;
     }
-
 
     /* End of checks */
 
@@ -244,6 +358,9 @@ int main(int argc, char *argv[])
     } else {
         printf("\n\n\x1b[31mSome tests failed\x1b[0m: Failed=%d passed=%d total=%d\n", fail, success, total);
     }
+
+    printf("\n\nCalling tests\n\n");
+    calling_test();
 
     if (argc > 1 && strcmp(argv[1], "performance") == 0) {
         performance_test();
