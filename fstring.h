@@ -26,6 +26,7 @@
 #define include_fstring_h
 
 #include <sys/types.h>
+#include <stdlib.h>
 
 /**
  * @brief The callback type for dynamic values. 
@@ -39,12 +40,17 @@ typedef const char *(*fstring_callback_t)(void *data, const char *name);
 #define fstr_vt_float   4
 #define fstr_vt_double  5
 #define fstr_vt_cb      6
+#define fstr_vt_list    7
+#define fstr_vt_environment 8
+
+struct fstr_value_t;
+struct _fstr_env;
 
 /**
  * @brief Values to pass to fstring's values list
  * 
  */
-typedef struct {
+typedef struct fstr_value_t {
     const char *name;
     char type;
     const union {
@@ -54,9 +60,17 @@ typedef struct {
         float f;
         double d;
         fstring_callback_t cb;
+        struct fstr_value_t **list;
+        struct _fstr_env *env;
     } value;
     void *cb_data;
 } fstr_value;
+
+struct _fstr_env {
+    size_t count, allocated;
+    fstr_value variables[1];
+};
+typedef struct _fstr_env *fstr_environment; 
 
 /**
  * @brief A convienence define for passing lists to lfstring and lbfstring
@@ -79,7 +93,6 @@ typedef struct {
  * Purely syntactic sugar
  */
 #define fstr_values_cast  (fstr_value *[] )
-
 
 /**
  * @brief Macros for converting local variables to pass to fstring functions
@@ -129,8 +142,25 @@ typedef struct {
 #define fstr_ncb(N, CB, DATA)   &((fstr_value){.name=N, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
 #define fstr_cb(CB, DATA)      &((fstr_value){.name=#CB, .type=fstr_vt_cb, .value.cb=CB, .cb_data=DATA})
 
+#define fstr_list(LIST)     &((fstr_value){.name="*", .type=fstr_vt_list, .value.list=LIST})
+
+#define fstr_env(ENV)       &((fstr_value){.name="*", .type=fstr_vt_environment, .value.env=ENV})
+
 #define fstr_end        NULL
 
+
+#define env_mem_size(N) (sizeof(struct _fstr_env) + sizeof(fstr_value) * N)
+
+#define fstr_env_init(NAME) do { NAME = calloc(env_mem_size(20), 1); NAME->var_allocated = 20; } while(0)
+
+inline void fstr_env_add(fstr_environment *eptr, fstr_value *val) {
+    fstr_environment e = *eptr;
+    if (++e->count == e->allocated) {
+         e->allocated *= 2; 
+         *eptr = realloc(*eptr, env_mem_size(e->allocated));
+    };
+    memcpy(&e->variables[e->count], val, sizeof(fstr_value));
+}
 
 /** int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_value *values[]);
  * @brief Formatted string using supplied variables (similar to Python's fstrings)

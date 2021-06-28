@@ -57,6 +57,8 @@ const char *_value_lookup(const char *name, fstr_value *values[])
 
         if (strcasecmp(name, val->name) == 0 || (val->name[0] == '*' && val->name[1] == 0)) {
             switch(val->type) {
+            case fstr_vt_list:
+                return _value_lookup(name, val->value.list);
             case fstr_vt_str: 
                 return val->value.s; 
             case fstr_vt_int:
@@ -124,6 +126,18 @@ fstr_value **_va_to_list(fstr_value *first, va_list vl)
     fstr_value **list = calloc(sizeof(fstr_value *),list_size+1);
 
     if (first) list[l_count++] = first;
+    if (first && first->type == fstr_vt_list) {
+        /* If the first entry is a list, then disregard the rest of the
+         * parameters. So you can make calls like this:
+         * fstr_values *variables[] = { fstr_str(thing) };
+         * 
+         * fstring("What is {thing}?", fstr_list(variables));
+         * 
+         * Neat, huh?
+         */
+        /* We have to return the list here, because it is expected to get freed later */
+        return list;
+    }
     do {
         if (l_count == list_size) {
             list_size *= 2;

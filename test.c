@@ -145,6 +145,10 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
 
     char *result;
 
+    TEST_NAME("fstring fstr_list");
+    result = fstring("Testing {str2} this {str1}", fstr_list(variables));
+    TEST_ASSERT(result != NULL);
+    TEST_ASSERT(strcmp(result, "Testing Blah this Testing") == 0);
 
     TEST_NAME("fstring()");
     result = fstring("Testing {str1}", fstr_str(str1), fstr_str(str2), fstr_end);
@@ -386,5 +390,6 @@ int main(int argc, char *argv[])
     if (argc > 1 && strcmp(argv[1], "performance") == 0) {
         performance_test();
     }
+
     return 0;
 }
