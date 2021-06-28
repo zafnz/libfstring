@@ -84,7 +84,7 @@ void performance_test()
     gettimeofday(&tv_end, NULL);
 
     usec = (1000000 * (tv_end.tv_sec - tv_start.tv_sec)) + (tv_end.tv_usec - tv_start.tv_usec);
-    printf("%ld interations. Elapsed time: %llu us (%llu.%06llu seconds)\n", PERF_TEST_COUNT, usec,
+    printf("%ld interations. Elapsed time: %lu us (%lu.%06lu seconds)\n", PERF_TEST_COUNT, usec,
             usec / 1000000, usec % 1000000);
     return;
 }
@@ -132,6 +132,7 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
     float f = 3.1415;
     double d = 3.333333;
     int r;
+    va_list vl_test1, vl_test2;
     fstr_value *variables[] = {
         fstr_int(x),
         fstr_str(str2),
@@ -151,7 +152,8 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
     TEST_ASSERT(strcmp(result, "Testing Testing") == 0);
 
     TEST_NAME("vfstring()");
-    result = vfstring(testing, vl);
+    va_copy(vl_test1, vl);
+    result = vfstring(testing, vl_test1);
     TEST_ASSERT(result != NULL);
     TEST_ASSERT(strcmp(result, vl_match) == 0);
 
@@ -168,7 +170,8 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
     TEST_ASSERT(strcmp(result, "Testing 12 str2"));
 
     TEST_NAME("vbfstring()");
-    r = vbfstring(buffer, sizeof(buffer), testing, vl);
+    va_copy(vl_test2, vl);
+    r = vbfstring(buffer, sizeof(buffer), testing, vl_test2);
     TEST_ASSERT(r > 0);
     TEST_ASSERT(strcmp(result, vl_match));
 
