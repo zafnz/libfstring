@@ -14,11 +14,19 @@ FNAME   := $(NAME)
 SNAME   := $(FNAME).a
 DNAME   := $(FNAME).so.$(VERSION)
 
+UNAME_S := $(shell uname -s)
+
 CC=gcc
 CFLAGS=-Wall -g  
 LDFLAGS=-shared -soname=$(FNAME).so.$(VERSION_MAJOR)
 TEST_CFLAGS=-O0 -Wall -g
 AR=ar
+LDCONFIG=ldconfig
+ifeq ($(UNAME_S),Darwin)
+	LD=gcc
+	LDFLAGS=-shared
+	LDCONFIG=echo
+endif
 
 all: build
 
@@ -28,7 +36,7 @@ build:
 	@echo "Linking"
 	@$(LD) $(LDFLAGS) -o $(DNAME) fstring.o
 	@$(AR) $(ARFLAGS) $(SNAME) fstring.o >/dev/null
-	@ldconfig -v -n . >/dev/null
+	@$(LDCONFIG) -v -n . >/dev/null
 	@echo "Cominging tests"
 	@$(CC) $(TEST_CFLAGS) test.c fstring.c -o test
 
@@ -39,7 +47,7 @@ docs:
 	doxygen Doxyfile  
 
 clean:
-	rm -f fstring test $(SNAME) $(DNAME) $(FNAME).so*
+	rm -f fstring test *.o $(SNAME) $(DNAME) $(FNAME).so*
 	rm -rf docs/*
 
 .PHONY: docs

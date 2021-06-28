@@ -84,8 +84,10 @@ void performance_test()
     gettimeofday(&tv_end, NULL);
 
     usec = (1000000 * (tv_end.tv_sec - tv_start.tv_sec)) + (tv_end.tv_usec - tv_start.tv_usec);
-    printf("%ld interations. Elapsed time: %lu us (%lu.%06lu seconds)\n", PERF_TEST_COUNT, usec,
-            usec / 1000000, usec % 1000000);
+    printf("%ld interations. Elapsed time: %lu us (%lu.%06lu seconds)\n", PERF_TEST_COUNT, 
+            (unsigned long) usec,
+            (unsigned long) usec / 1000000, 
+            (unsigned long) usec % 1000000);
     return;
 }
 
@@ -182,7 +184,7 @@ extern int lbfstring(char *buffer, size_t buffer_len, const char *format, fstr_v
 
     TEST_RESULTS();
 
-    return total;
+    return fail;
 }
 
 
@@ -381,10 +383,10 @@ int main(int argc, char *argv[])
     }
 
     printf("\n\nCalling tests\n\n");
-    calling_test();
+    fail += calling_test();
 
     if (argc > 1 && strcmp(argv[1], "performance") == 0) {
         performance_test();
     }
-    return 0;
+    return fail;
 }
